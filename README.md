@@ -77,6 +77,12 @@ uv build --no-sources
 The wheel and source archive are tested as external packages on Python 3.11,
 3.12, and 3.13. Runtime dependencies remain empty.
 
+## Research
+
+Reproducible public experiments live in
+[`agos-memory-lab`](https://github.com/iamagos/agos-memory-lab). Benchmark
+dependencies, datasets, model calls, and results stay outside this kernel.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md). Please report vulnerabilities privately rather
