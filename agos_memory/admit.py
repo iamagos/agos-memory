@@ -20,7 +20,14 @@ from agos_memory.types import (
 
 UnsafeTextReason = Literal["unsafe_secret", "unsafe_reasoning"]
 
-_SECRET_RE = re.compile(r"(?i)(api[_-]?key|bearer|password|secret|token|sk-[a-z0-9]|gh[opsu]_[a-z0-9])")
+_SECRET_RE = re.compile(
+  r"(?ix)\b(?:"
+  r"(?:api[_ -]?key|password|secret|token)\s*[:=]\s*\S+"
+  r"|bearer\s+[a-z0-9._~+/=-]{8,}"
+  r"|sk-[a-z0-9_-]{6,}"
+  r"|gh[opsu]_[a-z0-9]{6,}"
+  r")"
+)
 _REASONING_RE = re.compile(r"(?i)(chain[- ]of[- ]thought|hidden reasoning|raw reasoning)")
 _DOCISH_RE = re.compile(r"(?i)(full note|complete transcript|entire document|verbatim)")
 
