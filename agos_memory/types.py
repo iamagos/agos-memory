@@ -260,7 +260,7 @@ class SelectionPolicy:
   kinds: tuple[SelectionPriority, ...] = ()
   source_order: tuple[str, ...] = ()
   route_order: tuple[str, ...] = ()
-  omission_order: tuple[str, ...] = ("retention", "cutoff")
+  omission_order: tuple[Literal["retention", "cutoff"], ...] = ("retention", "cutoff")
   lexical_lane: str = "lexical"
   lexical_weight: int = 100
   confidence_weight: int = 20

@@ -25,6 +25,7 @@ jobs:
       - run: uv sync --locked --all-groups
       - run: uv run pytest
       - run: uv run ruff check .
+      - run: uv run mypy agos_memory
       - run: uv build --no-sources
       - name: Test wheel outside the checkout
         run: |

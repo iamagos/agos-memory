@@ -71,18 +71,22 @@ def select(
 
   route_map = _route_map(routes, policy=policy)
   query_terms = terms(normalize_query(query, max_chars=policy.max_query_chars))
+  matched_terms = {
+    _identity(item): query_terms & terms(item.text)
+    for item in items
+  }
   current = tuple(item for item in items if item.omission is None and not _future(item, now=now))
   candidates = [
     _candidate(
       item,
       score,
       routes=route_map.get(_identity(item), ()),
-      query_terms=query_terms,
+      matched_terms=matched_terms[_identity(item)],
       policy=policy,
       include_paths=include_paths,
     )
-    for item, score in _ordered(current, routes=route_map, query_terms=query_terms, policy=policy)
-    if _matches(item, query_terms) or route_map.get(_identity(item))
+    for item, score in _ordered(current, routes=route_map, matched_terms=matched_terms, policy=policy)
+    if matched_terms[_identity(item)] or route_map.get(_identity(item))
   ]
   omissions = {
     "retention": tuple(item for item in items if item.omission == "retention"),
@@ -94,7 +98,7 @@ def select(
         item,
         score,
         routes=route_map.get(_identity(item), ()),
-        query_terms=query_terms,
+        matched_terms=matched_terms[_identity(item)],
         policy=policy,
         include_paths=include_paths,
         reason=reason,
@@ -102,7 +106,7 @@ def select(
       for item, score in _ordered(
         omissions[reason],
         routes=route_map,
-        query_terms=query_terms,
+        matched_terms=matched_terms,
         policy=policy,
       )
     )
@@ -203,13 +207,13 @@ def _ordered(
   items: Sequence[SelectionItem],
   *,
   routes: dict[tuple[str, str], tuple[SelectionRoute, ...]],
-  query_terms: set[str],
+  matched_terms: dict[tuple[str, str], set[str]],
   policy: SelectionPolicy,
 ) -> list[tuple[SelectionItem, int]]:
   scored = tuple(
     (
       item,
-      _score(item, query_terms=query_terms, policy=policy)
+      _score(item, matched_terms=matched_terms[_identity(item)], policy=policy)
       + _route_score(routes.get(_identity(item), ()), policy=policy),
     )
     for item in items
@@ -227,19 +231,13 @@ def _ordered(
   )
 
 
-def _score(item: SelectionItem, *, query_terms: set[str], policy: SelectionPolicy) -> int:
-  lexical = len(query_terms & terms(item.text)) if query_terms else 0
+def _score(item: SelectionItem, *, matched_terms: set[str], policy: SelectionPolicy) -> int:
   return (
-    lexical * policy.lexical_weight
+    len(matched_terms) * policy.lexical_weight
     + _priority_score(item.partition, policy.partitions)
     + _priority_score(item.kind, policy.kinds)
     + round(item.confidence * policy.confidence_weight)
   )
-
-
-def _matches(item: SelectionItem, query_terms: set[str]) -> bool:
-  return bool(query_terms & terms(item.text))
-
 
 def _route_map(
   routes: Sequence[SelectionRoute],
@@ -276,13 +274,13 @@ def _candidate(
   score: int,
   *,
   routes: Sequence[SelectionRoute],
-  query_terms: set[str],
+  matched_terms: set[str],
   policy: SelectionPolicy,
   include_paths: bool,
   reason: _PendingReason = "pending",
 ) -> _Candidate:
   paths = (
-    _paths(item, routes=routes, query_terms=query_terms, policy=policy)
+    _paths(item, routes=routes, matched_terms=matched_terms, policy=policy)
     if include_paths
     else ()
   )
@@ -293,11 +291,11 @@ def _paths(
   item: SelectionItem,
   *,
   routes: Sequence[SelectionRoute],
-  query_terms: set[str],
+  matched_terms: set[str],
   policy: SelectionPolicy,
 ) -> tuple[SelectionPath, ...]:
   paths: list[SelectionPath] = []
-  matched = sorted(query_terms & terms(item.text))
+  matched = sorted(matched_terms)
   if matched:
     paths.append(SelectionPath(
       lane=policy.lexical_lane,
@@ -313,9 +311,10 @@ def _paths(
     )
     for route in routes
   )
-  trailing = item.paths[-policy.max_paths:]
-  available = max(policy.max_paths - len(trailing), 0)
-  return (*paths[:available], *trailing)
+  historical_limit = policy.max_paths - 1 if paths else policy.max_paths
+  historical = item.paths[-historical_limit:] if historical_limit else ()
+  available = policy.max_paths - len(historical)
+  return (*paths[:available], *historical)
 
 
 def _outcome(candidate: _Candidate) -> SelectionOutcome:

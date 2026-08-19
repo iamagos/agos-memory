@@ -186,6 +186,27 @@ def test_select_routes_only_provided_items_and_preserves_bounded_evidence() -> N
   )
 
 
+def test_select_keeps_current_paths_before_bounded_historical_evidence() -> None:
+  historical = (
+    SelectionPath("history", 1, "old-1"),
+    SelectionPath("history", 2, "old-2"),
+  )
+  result = select(
+    (_item("routed", text="The lender requested a floor.", paths=historical),),
+    routes=(SelectionRoute("record", "routed", "entity", 1, "current"),),
+    query="unmatched",
+    limits=SelectionLimits(max_items=1, max_chars=1_000),
+    policy=SelectionPolicy(max_paths=2),
+    now=NOW,
+    include_paths=True,
+  )
+
+  assert result.selected[0].candidate.paths == (
+    SelectionPath("entity", 1, "current"),
+    SelectionPath("history", 2, "old-2"),
+  )
+
+
 def test_select_accounts_for_cutoff_invalid_and_budgets() -> None:
   result = select(
     (
