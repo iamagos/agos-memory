@@ -211,6 +211,33 @@ def test_admit_rejects_invalid_proposal(proposal: Proposal, reason: str) -> None
   )
 
 
+@pytest.mark.parametrize(
+  "text",
+  (
+    "Set password=hunter2.",
+    "Use token: abcdefgh.",
+    "Authorization: Bearer abcdefgh.",
+    "API key is sk-secret.",
+    "GitHub credential ghp_abcdef.",
+  ),
+)
+def test_unsafe_text_reason_recognizes_credential_shapes(text: str) -> None:
+  assert unsafe_text_reason(text) == "unsafe_secret"
+
+
+@pytest.mark.parametrize(
+  "text",
+  (
+    "My token budget is 100.",
+    "The Secret Garden is my favorite book.",
+    "The password policy requires twelve characters.",
+    "Bearer plants grow in dry climates.",
+  ),
+)
+def test_unsafe_text_reason_allows_ordinary_language(text: str) -> None:
+  assert unsafe_text_reason(text) is None
+
+
 def test_admit_rejects_unrepresentable_expiry_without_aborting_later_proposals() -> None:
   out_of_range = _proposal(text="Expires too late.", expires_days=10**12)
   accepted = _proposal(text="Still evaluated.")
